@@ -7,8 +7,6 @@ PARENT_DIR = config["PARENT_DIR"]
 # Global path for ERCC used in salmon.
 ERCC_IN = config["ERCC_PATH"]
 
-print(config[helloworld()])
-
 def isgz(i):
   bool = re.search(r"\w\.gz", i)
 
