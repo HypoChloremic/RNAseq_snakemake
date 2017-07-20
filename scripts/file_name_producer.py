@@ -1,21 +1,25 @@
 # Snakemake pipe for RNAseq
 # (c) 2017 Ali Rassolie
-__version__ = "0.1.2 VAGRANT"
+__version__ = "0.1.5 VAGRANT"
 
+try:
+  import scripts.art as a
+  print(
+f"""
+***********************************************************
 
-print(
-"""
-*********************************
-*********************************
-WARNING!
-The following script is global.
-Press RETURN to continue the run.
-To terminate run, press ctrl+Z
-*********************************
-*********************************
+VERSION = {__version__}
+
+***********************************************************
+
 
 """)
-input()
+  print(a.Art.name)
+  print(a.Art.homer)
+  input()
+except ImportError as e:
+  print(e)
+
 
 from subprocess import call
 from collections import OrderedDict
@@ -43,7 +47,7 @@ class FileExpander:
 # Please do make sure that the input PARENT_DIR is a list.
     self.FULL_PATHS = file_expander([PARENT_DIR])
     self.SYMLINKED_PATHS, self.LOG_PATHS = symlink_creator(origin=self.FULL_PATHS, target=SYMLINKED_DIR)
-    print(self.LOG_PATHS)
+
 
 # This lambda func will replace remove the suffix of the files that we find
     self.FULL_PATHS = clean(self.FULL_PATHS)
@@ -52,10 +56,6 @@ class FileExpander:
     self.NO_DATA_PATH  = [ "/".join(i.split("/")[:-2]) for i in self.SYMLINKED_PATHS ]
     self.FILES = [ i.split("/")[-1] for i in self.SYMLINKED_PATHS ]
     self.LOG_PATHS = list(OrderedDict.fromkeys(self.LOG_PATHS))
-    print("symlinked")
-    print("\n".join(self.SYMLINKED_PATHS))
-    input()
-
 
   def opener(self, i):
     with open(i, "r") as file:
@@ -76,11 +76,10 @@ def symlink_creator(origin=None, target=None, n=4):
   files = [ i.split("/")[-1] for i in origins ]
   uncreated_dirs = [ "/".join(i.split("/")[-n:-1]) for i in origins ]
   uncreated_dirs = [ f"{target}/{i}" for i in uncreated_dirs ]
-  target_paths = [ f"{target}/{i[0]}/data/{i[1]}" for i in zip(file_names,files) ]
-  print(f"logs: {log_paths}")
-  input()
-  for dir_ in uncreated_dirs:
-    call(["mkdir", "-p", f"{dir_}/data", f"{dir_}/log"])
+  log_paths = [ f"{target}/{i}/log" for i in file_names ]
+
+  for dir_ in zip(uncreated_dirs, files):
+    call(["mkdir", "-p", f"{dir_[0]}/data", f"{dir_[0]}/log/{dir_[1]}"])
 
   for each_target in zip(origin, target_paths):
     call(["ln", "-s", each_target[0], each_target[1]])
@@ -105,7 +104,6 @@ def file_expander(parent, n=3, delimiter="/"):
       for parent_path in parent:
 
         files.extend([f"{parent_path}{delimiter}{k}" for k in os.listdir(parent_path) if not os.path.isdir(f"{parent_path}{delimiter}{k}") and isgz(f"{parent_path}{delimiter}{k}")])
-      print(files)
       return files
     else:
       parent = expand(parent, delimiter)
