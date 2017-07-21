@@ -7,7 +7,7 @@
 # Versions:
 ## snakemake: 3.13.3
 ## cutadapt: 1.14
-## multiqc: 0.9
+## multiqc: 1.0
 ## fastqc: 0.11.5
 ## salmon: 0.8.2
 ## conda: 4.3.21
