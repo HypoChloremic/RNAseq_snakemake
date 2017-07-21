@@ -1,8 +1,9 @@
 #################################################################################
 #################################################################################
 # Snakemake pipe for RNAseq
-# (c) 2017 Ali Rassolie
-# V.0.0.7 GIMLET
+# Copyright (c) 2017 Ali Rassolie
+# Karolinska Institutet
+# V.0.0.8 GIMLET
 # Versions:
 ## snakemake: 3.13.3
 ## cutadapt: 1.14
@@ -25,14 +26,14 @@ file_init = FileExpander()
 configfile: "scripts/config.yaml"
 PARENT_DIR = config["PARENT_DIR"]
 SALMON_INDEX    = config["SALMON_INDEX"]
+TRANSCRIPTOME = config["TRANSCRIPTOME"]
 URQT = config["URQT_PATH"]
 MULTIQC_REPORT_PATH = config["MULTIQC_REPORT_PATH"]
 TASK_CPUS = config["TASK_CPUS"]
-
+SYMLINKED_PATH = config["SYMLINKED_DIR"]
 # Refers to the scripts files, where we wish to get the paths
 FULL_PATHS = file_init.SYMLINKED_PATHS
 LOG_PATHS = file_init.LOG_PATHS
-
 # Files och NO_DATA_PATH är essentiella, år att de tillåter os
 # separera filerna vi vill analysera och the folders in which they lie.
 FILES = file_init.FILES
@@ -42,39 +43,48 @@ NO_DATA_PATH = file_init.NO_DATA_PATH
 # Jeff tells me that there may be different sequences for specific
 # fastq files, and that the sequences can be found based upon some index
 # from nextera?
+ADAPTOR_SEQUENCE = config["ADAPTOR_SEQUENCE"]
+
 #################################################################################
 #################################################################################
 
 #################
 ### The rules ###
 #################
-
-rule all:
   input:
-    expand("{path}/data/{files}_1_trimmed_out", zip, path=NO_DATA_PATH, files = FILES),
-    expand("{path}/data/{files}_2_trimmed_out", zip, path=NO_DATA_PATH, files = FILES),
-    expand("{path}/log/{files}_fastqc_log", zip, path=NO_DATA_PATH, files = FILES)
+    # For cutadapt rule
+    expand("{path}/data/cutadapt_output_1_{files}_fastq.gz", zip, path=NO_DATA_PATH, files=FILES),
+    expand("{path}/data/cutadapt_output_2_{files}_fastq.gz", zip, path=NO_DATA_PATH, files=FILES),
+    # For URQT rule
+    expand("{path}/data/{files}URQT_output_1_fastq.gz", zip, path=NO_DATA_PATH, files=FILES),
+    expand("{path}/data/{files}URQT_output_2_fastq.gz", zip, path=NO_DATA_PATH, files=FILES),
+    # For fastq rule
+    expand("{path}/log/{files}_untrim/", zip, path=NO_DATA_PATH, files = FILES),
+    expand("{path}/log/{files}_trim/", zip, path=NO_DATA_PATH, files = FILES),
+    # For salmon rule
+    expand("{path}/data/{files}_transcripts_quant", zip, path=NO_DATA_PATH, files = FILES)
 
-  input:
+
     first_file = "{path}/data/{files}_1.fastq.gz",
     second_file= "{path}/data/{files}_2.fastq.gz"
 
   output:
-    first_file = "{path}/data/cutadapt_output_1_{files}",
-    second_file= "{path}/data/cutadapt_output_2_{files}"
+    first_file = "{path}/data/cutadapt_output_1_{files}_fastq.gz",
+    second_file= "{path}/data/cutadapt_output_2_{files}_fastq.gz"
 
   log:
-    "{path}/log"
+    "{path}/log/{files}_log.txt"
 
   shell:
 
 rule urqt:
   input:
-    first_file = "{path}/data/{files}_1.fastq.gz",
-    second_file = "{path}/data/{files}_2.fastq.gz"
+    first_file = "{path}/data/cutadapt_output_1_{files}_fastq.gz",
+    second_file = "{path}/data/cutadapt_output_2_{files}_fastq.gz"
 
   output:
-    "{path}/data/{files}URQT_output"
+    urqt_trimmed_1 = "{path}/data/{files}URQT_output_1_fastq.gz",
+    urqt_trimmed_2 = "{path}/data/{files}URQT_output_2_fastq.gz"
 
   log:
     "{path}/log/{files}_URQT_report.txt"
@@ -84,47 +94,35 @@ rule urqt:
 
 rule fastqc_untrim:
   input:
-    "{path}/data/{files}_1.fastq.gz",
-    "{path}/data/{files}_2.fastq.gz"
-
+    untrimmed_fastq_1 = "{path}/data/{files}_1.fastq.gz",
   output:
-    "{path}/log/{files}_fastqc_log"
+    "{path}/log/{files}_untrim/"
 
   shell:
-    "fastqc {input} --quiet --threads {TASK_CPUS} --outdir {output}"
+    "fastqc --quiet --threads {TASK_CPUS} --outdir {output} {input.untrimmed_fastq_1} {input.untrimmed_fastq_2}"
 
 
 rule fastqc_trim:
   input:
-    "{path}/data/{files}_URQT_output"
+    trimmed_urqt_1 = "{path}/data/{files}URQT_output_1_fastq.gz",
+    trimmed_urqt_2 = "{path}/data/{files}URQT_output_2_fastq.gz"
+    "{path}/log/{files}_trim/"
 
-  output:
-    "{path}/log/{files}_fastqc_log"
-    "fastqc {input} --quiet --threads {TASK_CPUS} --outdir {output}"
+  shell:
+    "fastqc --quiet --threads {TASK_CPUS} --outdir {output} {input.trimmed_urqt_1} {input.trimmed_urqt_2}"
 
 rule multiqc:
-  input:
-    expand("{path}/log/", path=NO_DATA_PATH)
-
-  output:
-    "{MULTIQC_REPORT_PATH}/"
-
   shell:
-    "multiqc {input} --filename --o {output}"
-
-
-rule salmon_index:
-  shell:
-    "salmon index -t {SALMON_INDEX}"
+    "multiqc {SYMLINKED_PATH}/ --filename  ./reports"
 
 
 rule salmon:
   input:
-    "{path}/data/{files}_clipped_R1.fq.gz",
-    "{path}/data/{files}_clipped_R2.fq.gz"
+    urqt_trimmed_1 = "{path}/data/{files}URQT_output_1_fastq.gz",
+    urqt_trimmed_2 = "{path}/data/{files}URQT_output_2_fastq.gz"
 
   output:
-    "{path}/data/{files}_salmoned"
+    transcripts_quant = "{path}/data/{files}_transcripts_quant"
 
   shell:
-    "salmon quant -i {SALMNON_INDEX} -l IU -p 8 --useVBOpt --numBootstraps 100 --seqBias --gcBias --posBias -1 {input[0]} -2 {input[0]} -o {output}"
+    "salmon quant -i {SALMON_INDEX} -l IU -p 8 --useVBOpt --numBootstraps 100 --seqBias --gcBias --posBias -1 {input.urqt_trimmed_1} -2 {input.urqt_trimmed_2} -o {output.transcripts_quant}"
