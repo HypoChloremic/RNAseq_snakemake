@@ -28,9 +28,11 @@ SALMON_INDEX    = config["SALMON_INDEX"]
 URQT = config["URQT_PATH"]
 MULTIQC_REPORT_PATH = config["MULTIQC_REPORT_PATH"]
 TASK_CPUS = config["TASK_CPUS"]
+
 # Refers to the scripts files, where we wish to get the paths
 FULL_PATHS = file_init.SYMLINKED_PATHS
 LOG_PATHS = file_init.LOG_PATHS
+
 # Files och NO_DATA_PATH är essentiella, år att de tillåter os
 # separera filerna vi vill analysera och the folders in which they lie.
 FILES = file_init.FILES
