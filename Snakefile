@@ -24,19 +24,19 @@ file_init = FileExpander()
 
 # Refers to the configfile where we got everything
 configfile: "scripts/config.yaml"
-PARENT_DIR = config["PARENT_DIR"]
-SALMON_INDEX    = config["SALMON_INDEX"]
+PARENT_DIR    = config["PARENT_DIR"]
+SALMON_INDEX  = config["SALMON_INDEX"]
 TRANSCRIPTOME = config["TRANSCRIPTOME"]
-URQT = config["URQT_PATH"]
+URQT          = config["URQT_PATH"]
 MULTIQC_REPORT_PATH = config["MULTIQC_REPORT_PATH"]
-TASK_CPUS = config["TASK_CPUS"]
+TASK_CPUS      = config["TASK_CPUS"]
 SYMLINKED_PATH = config["SYMLINKED_DIR"]
 # Refers to the scripts files, where we wish to get the paths
 FULL_PATHS = file_init.SYMLINKED_PATHS
-LOG_PATHS = file_init.LOG_PATHS
+LOG_PATHS  = file_init.LOG_PATHS
 # Files och NO_DATA_PATH är essentiella, år att de tillåter os
 # separera filerna vi vill analysera och the folders in which they lie.
-FILES = file_init.FILES
+FILES        = file_init.FILES
 NO_DATA_PATH = file_init.NO_DATA_PATH
 
 
