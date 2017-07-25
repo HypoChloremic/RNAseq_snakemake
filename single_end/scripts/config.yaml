@@ -1,10 +1,10 @@
-TRANSCRIPTOME: "/media/box2/Experiments/Jeff/RNAseq/jeff2/reference/ERCC_gencode.v26.pc_transcripts.fa"
-SALMON_INDEX: "/media/box2/Experiments/Jeff/RNAseq/single_end/salmon_index.index"
-PARENT_DIR: "/media/box2/Data/Jeff/All_Female_YFV2003_InVivo/All_Female_YFV2003_InVivo/P1373_50bp_SingleEnd_Data/D15_P1373_BothRuns/"
-SYMLINKED_DIR: "/media/box2/Experiments/Jeff/RNAseq/single_end/output/P1316_Female_A2_Data"
-ADAPTOR_SEQUENCE: "-a AGATCGGAAGAG -g CTCTTCCGATCT -A AGATCGGAAGAG -G CTCTTCCGATCT"
-URQT_PATH: "/media/box2/Experiments/Jeff/RNAseq/single_end/scripts/UrQt/UrQt"
-MULTIQC_REPORT_PATH: "/media/box2/Experiments/Jeff/RNAseq/single_end/reports"
+TRANSCRIPTOME: 
+SALMON_INDEX: 
+PARENT_DIR: 
+SYMLINKED_DIR: 
+ADAPTOR_SEQUENCE: 
+URQT_PATH: 
+MULTIQC_REPORT_PATH: 
 FASTQ_THREADS: ""
 URQT_THREADS: ""
 RUN_TYPE: "single"
