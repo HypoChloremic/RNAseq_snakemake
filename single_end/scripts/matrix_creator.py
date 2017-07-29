@@ -229,6 +229,6 @@ def expand(f, delimiter="/"):
   return l
 
 if __name__ == "__main__":
-  process = MatrixCreator(directory="/media/box2/Experiments/Jeff/RNAseq/paired_end/jeff2/output/P1316_Female_A2_Data/")
+  process = MatrixCreator(directory=)
   #process.unfiltered_matrix(tmp = "tmp3", count="count3")
   process.matrix_opener("tmp3_ps.csv")

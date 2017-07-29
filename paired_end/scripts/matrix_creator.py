@@ -13,8 +13,10 @@ import re, os
 import matplotlib.pyplot as plt
 from pandas import DataFrame
 from pandas import concat
-from collections import Counter
+from collections import Counter, OrderedDict
 from time import time, sleep
+from math import log10
+
 
 class MatrixCreator(fp.FileExpander):
 
@@ -27,12 +29,40 @@ class MatrixCreator(fp.FileExpander):
   def annotation(self, **kwargs):
 
     with open(self.ANNOTATION_PATH) as file:
+      #t = time()
 
-      data = file.readlines()
-      self.an_dict    = {i.replace("\n","").split("\t")[0] : i.replace("\n","").split("\t")[1] for i in data if i}
-      self.gene_names = [i.replace("\n","").split("\t")[1] for i in data if i]
-      self.gene_names = list(set(self.gene_names))
-      
+      data = [ i.split() for i in file.readlines() ]
+      #data = file.read().split()
+      #t2 = time()
+      #indices = [ i+(i2/(10**(int(log10(i2))+1))) for i, k in enumerate(data) for i2, n in enumerate(k) if "ENST" in n ]
+      #indices = [ f"{i}.{i2}" for i, k in enumerate(data) for i2, n in enumerate(k) if "ENST" in n ]
+  #    t3 = time()
+ #     print(t2-t, t3-t2)
+
+#      print(data[int(indices[0].split(".")[0])][int(indices[0].split(".")[1])])
+      t = time()
+      l = OrderedDict()
+      self.temp_gene = None
+      for each in data:
+        for i, n in enumerate(each):
+          try:
+            if "gene_name" in n:
+              l[n[i+1]] = None
+              self.temp_gene = n[i+1]
+
+            elif "ENST" in n:
+              l[list(l.items())[-1][0]] = n
+              
+
+
+            else:
+              continue
+          except IndexError as e:
+            pass 
+
+      print(time()-t)
+      print(l)
+
   def unfiltered_matrix(self, tmp="tmp", count="count"):
     tmp_name_unfilt = tmp
     count_name_unfilt = count
@@ -229,6 +259,7 @@ def expand(f, delimiter="/"):
   return l
 
 if __name__ == "__main__":
-  process = MatrixCreator(directory="/media/box2/Experiments/Jeff/RNAseq/paired_end/jeff2/output/P1316_Female_A2_Data/")
+  process = MatrixCreator(directory=)
   #process.unfiltered_matrix(tmp = "tmp3", count="count3")
+  process.annotation()
   process.matrix_opener("tmp3_ps.csv")
