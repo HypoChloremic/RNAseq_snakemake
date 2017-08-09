@@ -5,12 +5,13 @@
 __version__ = "0.2.5 GIMLET"
 __doc__ =""" 
 This script has been adapted to be used with the following versions:
+ python:    3.6.1
  snakemake: 3.13.3
- cutadapt: 1.14
- multiqc: 1.0
- fastqc: 0.11.5
- salmon: 0.8.2
- conda: 4.3.21
+ cutadapt:  1.14
+ multiqc:   1.0
+ fastqc:    0.11.5
+ salmon:    0.8.2
+ conda:     4.3.21
 """
 
 # We will need to import several methods from fp, 
