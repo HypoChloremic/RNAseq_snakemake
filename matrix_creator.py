@@ -410,7 +410,7 @@ def expander(top, bol_=lambda i: "quant.sf" in i, delimiter="/"):
   return abspaths
 
 if __name__ == "__main__":
-  folders_to_run = ['/media/box2/Experiments/Jeff/RNAseq/paired_end/jeff2/output/P8164_Bulk_RNAseq_Clones', '/media/box2/Experiments/Jeff/RNAseq/paired_end/jeff2/output/Joanna_Test_RNAseq_Single_Bulk', '/media/box2/Experiments/Jeff/RNAseq/paired_end/jeff2/output/J.Frisen_14_03_P1292_B7_YFVNM', '/media/box2/Experiments/Jeff/RNAseq/paired_end/jeff2/output/P1316_Female_A2_Data', '/media/box2/Experiments/Jeff/RNAseq/paired_end/jeff2/output/test_data', '/media/box2/Experiments/Jeff/RNAseq/single_end/output/D15_P1373_YFV2003_Run2', '/media/box2/Experiments/Jeff/RNAseq/single_end/output/D90_P1373_YFV2003', '/media/box2/Experiments/Jeff/RNAseq/single_end/output/D15_P1373_YFV2003']  
+  folders_to_run = 
   for folder in folders_to_run:
     print(f"[GLOBAL] Running currently on: {folder}")
     process = MatrixCreator(directory=folder)
