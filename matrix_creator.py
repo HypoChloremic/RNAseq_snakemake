@@ -261,44 +261,21 @@ class MatrixCreator(fp.FileExpander):
 
     print(f"{self.ERDEFS.OKGREEN}(FILT) Outside of the process loop{self.ERDEFS.END}")
 
- #   print("(FILT) Retrieving from Queue")
- #   data = out_q.get() # Blocking
- #   print("(FILT) Finished retrieving from Queue")
- #   output[data[0]] = data[-1]
- #   print("(FILT) Retrieving from Queue")
- #   data = out_q.get() # Blocking
- #   print("(FILT) Finished retrieving from Queue")
- #   output[data[0]] = data[-1]
- #   print(output)
-
-#    while True:
-#      if not out_q.empty():
-#        print("(FILT) Retrieving from Queue")
-#        data = out_q.get() # Blocking
-#        print("(FILT) Finished retrieving from Queue")
-#        output[data[0]] = data[-1]
-
-#        if out_q.empty(): break
-#        else:
-#          print("continuing")
-#          continue
-#      elif out_q.empty():
-#        print("empty")
-#        sleep(1)
-    
+   # There was an issue here, where the output dict had been referenced before assignment. 
+   # However, no error was raised in the process, which was the cause of the headache.  
     for i in range(len(procs)):
-      print("(FILT) Retrieving from Queue")
+      print("{self.ERDEFS.OKGREEN}(FILT) Retrieving from Queue{self.ERDEFS.END}")
       data = out_q.get() # Blocking
       output[data[0]] = data[-1]
-    print("Finished retrieving")
+    print("{self.ERDEFS.OKGREEN}(FILT) Finished retrieving{self.ERDEFS.END}")
     print(output)
 
     for proc in procs:
       proc.join() # Blocking
       print("sdasd")
-    print("(FILT) Joined the processes" )
-    print("(FILT) Incorporating the results")
-    print("(FILT) Saving to csv...")
+    print("{self.ERDEFS.OKGREEN}(FILT) Joined the processes{self.ERDEFS.END}" )
+    print("{self.ERDEFS.OKGREEN}(FILT) Incorporating the results{self.ERDEFS.END}")
+    print("{self.ERDEFS.OKGREEN}(FILT) Saving to csv...{self.ERDEFS.END}")
 
     output["tmp"].to_csv(f"{self.output_folder}/{tmp_name_unfilt}_filtered_{self.file_name}.csv")
     output["count"].to_csv(f"{self.output_folder}/{count_name_unfilt}_filtered_{self.file_name}.csv")
@@ -470,5 +447,5 @@ def expand(f, delimiter="/"):
   return l
 
 if __name__ == "__main__":
-  process = MatrixCreator(directory=)
+  process = MatrixCreator(directory="/media/box2/Experiments/Jeff/RNAseq/paired_end/jeff2/output/J.Frisen_14_03_P1292_B7_YFVNM")
   process.run_prf()
