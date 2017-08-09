@@ -1,11 +1,16 @@
 # This will produce matrices from specified salmon quant outputs.
 # (cc) 2017 Ali Rassolie
 # Karolinska Institutet
-# 
+ 
 __version__ = "0.2.0 GIMLET"
 __doc__ =""" 
-This script has been adapted to be used with o
-
+This script has been adapted to be used with the following versions:
+ snakemake: 3.13.3
+ cutadapt: 1.14
+ multiqc: 1.0
+ fastqc: 0.11.5
+ salmon: 0.8.2
+ conda: 4.3.21
 """
 
 import file_name_producer as fp
@@ -16,151 +21,204 @@ from pandas import concat
 from collections import Counter, OrderedDict
 from time import time, sleep
 from math import log10
-
+from multiprocessing import Process
+from subprocess import call
 
 class MatrixCreator(fp.FileExpander):
 
-  def __init__(self, directory=None):
+  def __init__(self, directory=None, overwrite=False, folder="temp"):
 
     _, SYMLINK_DIR, self.ANNOTATION_PATH = self.opener("config.yaml", term="ANNOTATION_PATH")
     files        = file_expander([directory], n=6)
     self.quants  = [ i for i in files if self.isquant(i) ]
+    if overwrite is True:
+      call(["rm", "-r", f"{folder}"])
 
-  def annotation(self, **kwargs):
+  def annotation(self, file_name = "temp/temp_dict.dat", **kwargs):
+    # This method is going to look for tmp folders, where 
+    # a dictionary file exists.
+    print("\nAnnotation")
+    try:
+      with open(file_name, "r") as file: 
+        print(f"Opening {file_name}")
+        t   = time()
 
+      # temp_creator have included newlines. This allows us 
+      # to use readlines to produce the necessary entries in
+      # the list.       
+        dat = file.readlines()
+        self.an_dict = dict()
+        for each in dat:
+          self.an_dict[each.split()[0]] = each.split()[1]
+
+      # We create a set for the genes, so as to remove duplicates.
+        self.gene_names = set(list(self.an_dict.values())) 
+        print(f"Finished reading the gene-transcript dictionary for {time()-t}s")
+        
+    except FileNotFoundError as e:
+      self.create_annotation()
+
+  def create_annotation(self, **kwargs):
+    print("Creating gene-transcript dictionary...")
+    t = time()
     with open(self.ANNOTATION_PATH) as file:
-      #t = time()
+      dat  = file.read().replace('"', "").replace(";","").split("\n")
+      data = [ i.split() for i in dat ]
 
-      data = [ i.split() for i in file.readlines() ]
-      #data = file.read().split()
-      #t2 = time()
-      #indices = [ i+(i2/(10**(int(log10(i2))+1))) for i, k in enumerate(data) for i2, n in enumerate(k) if "ENST" in n ]
-      #indices = [ f"{i}.{i2}" for i, k in enumerate(data) for i2, n in enumerate(k) if "ENST" in n ]
-  #    t3 = time()
- #     print(t2-t, t3-t2)
-
-#      print(data[int(indices[0].split(".")[0])][int(indices[0].split(".")[1])])
-      t = time()
-      l = OrderedDict()
+      self.an_dict   = dict()
       self.temp_gene = None
-      for each in data:
-        for i, n in enumerate(each):
+      self.annotation_index_errors = 0
+     
+    for each in data:
+      bool_ = False
+      for i, n in enumerate(each):          
+          
+        if "ENST" in n:
+          self.transcript = n
+          self.an_dict[self.transcript] = None
+          bool_ = True
+
+        elif "gene_name" in n and bool_ is True:
+          self.an_dict[self.transcript] = each[i+1]
+
+        elif "gene_name" in n and bool_ is False:
           try:
-            if "gene_name" in n:
-              l[n[i+1]] = None
-              self.temp_gene = n[i+1]
+            self.an_dict[f"None_{i}"] = each[i+1]
 
-            elif "ENST" in n:
-              l[list(l.items())[-1][0]] = n
-              
-
-
-            else:
-              continue
           except IndexError as e:
-            pass 
+            self.annotation_index_errors += 1
 
-      print(time()-t)
-      print(l)
+        else:
+          pass
+
+    self.gene_names = set(list(self.an_dict.values()))
+    print(f"Finished creating dictionary for: {time()-t}s")
+    self.temp_creator(self.an_dict)
+
+  def temp_creator(self, d, file_name= "temp/temp_dict.dat", folder="temp"):
+
+    print(f"Creating directory for {file_name}")
+    call(["mkdir", f"{folder}"])
+
+    print(f"Creating {file_name}")
+    with open(file_name, "w") as file:
+      for key in iter(d):
+        file.write(f"{key} {d[key]}\n")
+
+  def run(self, func):
+    pass       
+
+  def run_matrix(self):
+    self.annotation()
+    print("Running both FiltMatrix and UnfiltMatrix")
+    run_filt   = Process(target=self.filtered_matrix)
+    run_unfilt = Process(target=self.unfiltered_matrix)
+    run_filt.start()
+    run_unfilt.start()
+
+  def run_prf(self):
+    self.annotation()
+    run = Process(target=self.filtered_matrix)
+    run.start()
+
+  def run_pruf(self):
+    self.annotation()
+    run = Process(target=self.unfiltered_matrix)
+    run.start()
 
   def unfiltered_matrix(self, tmp="tmp", count="count"):
-    tmp_name_unfilt = tmp
+    tmp_name_unfilt   = tmp
     count_name_unfilt = count
     textgen = self.text_processing(self.quants)
 
    # Initiating the generator.
     tmp, count, pstmp, pscount = next(textgen)  
-
-   # Timing a future loop
-    o = time()
-
+#    func_calls = (concat([tmp, new_tmp], axis=1),
+#                  concat([count, new_count], axis=1),
+#                  concat([pstmp, new_pstmp], axis=1),
+#                  concat([pscount, new_pscount], axis=1))
    # Driving the generator. 
+    print("Driving unfilt generator...")
     for new_tmp, new_count, new_pstmp, new_pscount in textgen:
-      tmp = concat([tmp, new_tmp], axis=1)
+
+   # In this form, concat is used to add new columns
+   # to new dataframes. Note that the dataframes are
+   # large, causing time consumption. 
+      tmp   = concat([tmp, new_tmp], axis=1)
       count = concat([count, new_count], axis=1)
       pstmp = concat([pstmp, new_pstmp], axis=1)
       pscount = concat([pscount, new_pscount], axis=1)
-      print(time()-o)
-      o = time()
-
-
+    print("Finished driving the unfilt generators")
+   
    # Filtering the matrices, in order to produce
    # the necessary files, where gene isoform values
    # have been added. 
    # The number of rows should equal to the number of genes expressed. 
 
-   # Writing the data to files
+   # Writing the data to files. Note that these have not
+   # been converted to tsv yet. 
+    print("Saving the dataframes to csv...")
     tmp.to_csv(f"{tmp_name_unfilt}_unfiltered.csv")
     count.to_csv(f"{count_name_unfilt}_unfiltered.csv")
+
     pstmp.to_csv(f"{tmp_name_unfilt}_ps.csv")
     pscount.to_csv(f"{count_name_unfilt}_ps.csv")
   
 
+  def filtered_matrix(self, tmp="tmp", count="count"):
 
-  def filtered_matrix_producer(self, tmp="tmp", count="count"):
-
-    tmp_name_unfilt = tmp
+    tmp_name_unfilt   = tmp
     count_name_unfilt = count
     textgen = self.text_processing(self.quants)
 
     tmp, count, pstmp, pscount = next(textgen)
-
+    print("Driving text-generator...")
+    t = time()
     for new_tmp, new_count, new_pstmp, new_pscount in textgen:
-      tmp = concat([tmp, new_tmp], axis=1)
+      tmp   = concat([tmp, new_tmp],     axis=1)
       count = concat([count, new_count], axis=1)
-      pstmp = concat([pstmp, new_pstmp], axis=1)
-      pscount = concat([pscount, new_pscount], axis=1)
+      #pstmp = concat([pstmp, new_pstmp], axis=1)
+      #pscount = concat([pscount, new_pscount], axis=1)
 
+    print(f"Finished driving text-generator for {time()-t}s")
 
    # Filtering the matrices, in order to produce
    # the necessary files, where gene isoform values
    # have been added.
    # The number of rows should equal to the number of genes expressed.
-    filtered_tmp   = self.filtered_matrix(dataframe=tmp)
-    filtered_count = self.filtered_matrix(dataframe=count)
+    filtered_tmp   = self.filtered_matrix_producer(dataframe=tmp)
+    filtered_count = self.filtered_matrix_producer(dataframe=count)
 
     filtered_tmp.to_csv(f"{tmp_name_unfilt}_filtered.csv")
     filtered_count.to_csv(f"{count_name_unfilt}_filtered.csv")
 
-  def filtered_matrix(self, dataframe=None, ncolumns=190):
+  def filtered_matrix_producer(self, dataframe=None, ncolumns=190):
     # The dataframe of interest. 
     # It will contain all the compounded values for each gene. 
-
-    filtered_matrix = DataFrame( data    = [[0.]*len(dataframe.columns)]*len(self.gene_names),
-                                 index   = self.gene_names, 
-                                 columns = list(dataframe.columns))
+    print(f"Producing filtered dataframes\nID: {id(dataframe)}")
+    filtered_matrix = DataFrame(data    = [[0.]*len(dataframe.columns)]*len(self.gene_names),
+                                index   = self.gene_names, 
+                                columns = list(dataframe.columns))
 
     t = time()
 
-    #for i in dataframe.index:
-    print(len(dataframe.index.values))
     for i in range(len(dataframe.index.values)):
     # Create the necessary gene-names. 
       if "ERCC" in dataframe.index[i]:
         continue
       
-    #  temp_name = 
-      #print(dataframe.iloc[i].values)
     # Extract the gene-name from the dataframe index. 
       gene_name = dataframe.index[i].split("|")[-1]
-
-    # Make sure that the gene has not been appended before we move on.       
-      #print(filtered_matrix.loc[gene_name].values)
-      #print(dataframe.iloc[i].values, dataframe.index[i])
       filtered_matrix.loc[gene_name] = filtered_matrix.loc[gene_name].add(dataframe.iloc[i])
-      #print(filtered_matrix.loc[gene_name].values)
-      print(time()-t)
-      t = time()
-      #sleep(0.1)
+    print(f"Finished producing filtered matrix: ")
+    return filtered_matrix
 
-
-  def matrix_opener(self, i):
-    with open(i, "r") as file:
-      print(len(file.readlines()))
+  def open_matrix(self, i):
+    df = DataFrame.from_csv(i)
+    return df
 
   def text_processing(self, i):
-    self.name_count = Counter()
-    self.annotation()
+    #self.name_count = Counter()
     tmp_creator   = lambda data, sample_tmp: DataFrame(data, columns=[sample_tmp], index=data["Name"])
     count_creator = lambda data, sample_count: DataFrame(data, columns=[sample_count], index=data["Name"])
 
@@ -170,7 +228,9 @@ class MatrixCreator(fp.FileExpander):
 #        return StopIteration
 
       with open(n, "r") as file:
-
+      # This readline method call is problematic, for
+      # input files with differing headers.
+ 
         file.readlines(1)
         sample = n.split("/")[-2]
         sample_tmp = f"{sample}_tmp"
@@ -185,16 +245,13 @@ class MatrixCreator(fp.FileExpander):
         for i in k:
           i    = i.replace("\n", "").split("\t")
           name = i[0].split("|")[0]
-
           try:
             if "ERCC" not in name:
-              gene = self.an_dict[name.split(".")[0]]
-              #name = f"{gene}"
+              gene = self.an_dict[name]
               name = f"{name}|{gene}"
               gene_match["Name"].append(name)
               gene_match[sample_tmp].append(float(i[-2]))
               gene_match[sample_count].append(float(i[-1]))
-           
               
             else:
               gene_match["Name"].append(name)
@@ -202,7 +259,11 @@ class MatrixCreator(fp.FileExpander):
               gene_match[sample_count].append(i[-1])
             
           except KeyError as e:
-            
+          # Receiving a KeyError here implies that 
+          # the ENST transcript code found no match
+          # in the transcript-gene dictionary.  
+            print("No math")
+            sleep(1) 
             no_gene_match["Name"].append(name)
             no_gene_match[sample_tmp].append(i[-2])
             no_gene_match[sample_count].append(i[-1])
@@ -221,9 +282,9 @@ class MatrixCreator(fp.FileExpander):
   # Returns files with quant prefix. 
   # Boolean function. 
 
-
   def isquant(self, i):
-  # The regex param
+  # The regex param. It is going to be used to
+  # identify the correct data files of interest. 
     param = re.search(r"\w/quant\.sf$", i)
 
     try:
@@ -256,10 +317,10 @@ def expand(f, delimiter="/"):
 
     for i in files_in_d:
       l.append(f"{each}{delimiter}{i}")
+
   return l
 
 if __name__ == "__main__":
-  process = MatrixCreator(directory=)
-  #process.unfiltered_matrix(tmp = "tmp3", count="count3")
-  process.annotation()
-  process.matrix_opener("tmp3_ps.csv")
+  process = MatrixCreator(directory="/media/box2/Experiments/Jeff/RNAseq/paired_end/jeff2/output/P1316_Female_A2_Data/")
+  #process.run_matrix()
+  process.run_pruf()
