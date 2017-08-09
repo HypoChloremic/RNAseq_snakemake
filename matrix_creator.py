@@ -264,18 +264,18 @@ class MatrixCreator(fp.FileExpander):
    # There was an issue here, where the output dict had been referenced before assignment. 
    # However, no error was raised in the process, which was the cause of the headache.  
     for i in range(len(procs)):
-      print("{self.ERDEFS.OKGREEN}(FILT) Retrieving from Queue{self.ERDEFS.END}")
+      print(f"{self.ERDEFS.OKGREEN}(FILT) Retrieving from Queue{self.ERDEFS.END}")
       data = out_q.get() # Blocking
       output[data[0]] = data[-1]
-    print("{self.ERDEFS.OKGREEN}(FILT) Finished retrieving{self.ERDEFS.END}")
+    print(f"{self.ERDEFS.OKGREEN}(FILT) Finished retrieving{self.ERDEFS.END}")
     print(output)
 
     for proc in procs:
       proc.join() # Blocking
       print("sdasd")
-    print("{self.ERDEFS.OKGREEN}(FILT) Joined the processes{self.ERDEFS.END}" )
-    print("{self.ERDEFS.OKGREEN}(FILT) Incorporating the results{self.ERDEFS.END}")
-    print("{self.ERDEFS.OKGREEN}(FILT) Saving to csv...{self.ERDEFS.END}")
+    print(f"{self.ERDEFS.OKGREEN}(FILT) Joined the processes{self.ERDEFS.END}" )
+    print(f"{self.ERDEFS.OKGREEN}(FILT) Incorporating the results{self.ERDEFS.END}")
+    print(f"{self.ERDEFS.OKGREEN}(FILT) Saving to csv...{self.ERDEFS.END}")
 
     output["tmp"].to_csv(f"{self.output_folder}/{tmp_name_unfilt}_filtered_{self.file_name}.csv")
     output["count"].to_csv(f"{self.output_folder}/{count_name_unfilt}_filtered_{self.file_name}.csv")
@@ -287,7 +287,7 @@ class MatrixCreator(fp.FileExpander):
     ID        = id(dataframe)
     # The dataframe of interest. 
     # It will contain all the compounded values for each gene. 
-    print(f"(FILT) Producing filtered dataframes; id: {ID}")
+    print(f"{self.ERDEFS.OKGREEN}(FILT) Producing filtered dataframes; id: {ID}{self.ERDEFS.END}")
 
     # This is the dataframe file that will containt all of the
     # genes and the relevant counts. It is important to note that
@@ -312,9 +312,9 @@ class MatrixCreator(fp.FileExpander):
       filtered_matrix.loc[gene_name] = filtered_matrix.loc[gene_name].add(dataframe.iloc[i])
 
     output = [name, filtered_matrix]
-    print(f"{self.ERDEFS.OKGREEN}(FILT) Putting shit in the output dict")
+    print(f"{self.ERDEFS.OKGREEN}(FILT) Putting shit in the output dict{self.ERDEFS.END}")
     out_q.put(output)
-    print("(FILT) finished putting the shit")
+    print(f"{self.ERDEFS.OKGREEN}(FILT) finished putting the shit{self.ERDEFS.END}")
 
 
   def read_matrix(self, i):
@@ -397,8 +397,8 @@ class MatrixCreator(fp.FileExpander):
 
         yield tmp, count, pstmp, pscount
 
-      if pos == 0:
-        return StopIteration
+      #if pos == 0:
+      #  return StopIteration
 
 
 
@@ -448,4 +448,4 @@ def expand(f, delimiter="/"):
 
 if __name__ == "__main__":
   process = MatrixCreator(directory="/media/box2/Experiments/Jeff/RNAseq/paired_end/jeff2/output/J.Frisen_14_03_P1292_B7_YFVNM")
-  process.run_prf()
+  process.run_matrix()
