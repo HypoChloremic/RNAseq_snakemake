@@ -422,5 +422,5 @@ def expand(f, delimiter="/"):
   return l
 
 if __name__ == "__main__":
-  process = MatrixCreator(directory="/media/box2/Experiments/Jeff/RNAseq/paired_end/jeff2/output/J.Frisen_14_03_P1292_B7_YFVNM")
+  process = MatrixCreator(directory=)
   process.run_prf()
