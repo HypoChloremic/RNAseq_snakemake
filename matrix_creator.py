@@ -54,9 +54,9 @@ class MatrixCreator(fp.FileExpander):
 
     # Using the opener to get config paths.
     _, SYMLINK_DIR, self.ANNOTATION_PATH = self.opener(config, term="ANNOTATION_PATH")
-    files        = file_expander([directory], n=6)
-    self.quants  = [ i for i in files if self.isquant(i) ]
-
+    files        = expander(directory)
+    #self.quants  = [ i for i in files if self.isquant(i) ]
+    self.quants = files
    
     # Will remove folder, so as to create a new annotation file that is written. 
     if overwrite is True:
@@ -397,55 +397,21 @@ class MatrixCreator(fp.FileExpander):
 
         yield tmp, count, pstmp, pscount
 
-      #if pos == 0:
-      #  return StopIteration
+#      if pos == 0:
+#        return StopIteration
 
-
-
-  def isquant(self, i):
-  # Returns files with quant prefix.
-  # Boolean function.
-
-  # The regex param. It is going to be used to
-  # identify the correct data files of interest. 
-    param = re.search(r"\w/quant\.sf$", i)
-
-    try:
-      assert param
-      return True
-
-    except AssertionError:
-      return False    
-
-#####################
-### Global Methods###
-#####################
-
-def file_expander(parent, n=3, delimiter="/"):
-  for i in range(n):
-    if i == n-1:
-      files = []
-      for parent_path in parent:
-
-        files.extend([f"{parent_path}{delimiter}{k}" for k in os.listdir(parent_path) if not os.path.isdir(f"{parent_path}{delimiter}{k}") ])
-      return files
-    else:
-      parent = expand(parent, delimiter)
-
-# expand() method will take an array containing paths, and return a list where the
-# paths have been opened and returned in a list.
-def expand(f, delimiter="/"):
-  l = []
-  for each in f:
-    # This list compr will expand the path of spec index in the input path list
-    # and it will be appending children that are directories themselves.
-    files_in_d = [ k for k in os.listdir(each) if os.path.isdir(f"{each}{delimiter}{k}")]
-
-    for i in files_in_d:
-      l.append(f"{each}{delimiter}{i}")
-
-  return l
+def expander(top, bol_=lambda i: "quant.sf" in i, delimiter="/"):
+  walk_gen = os.walk(top)
+  print(top)
+  paths = [ i for i in walk_gen for n in i if bol_(n) ]
+  #print(paths)
+  abspaths = [ f"{i[0]}{delimiter}quant.sf" for i in paths]
+  print(f"[GLOBAL] Going to process {len(abspaths)} quant files")
+  return abspaths
 
 if __name__ == "__main__":
-  process = MatrixCreator(directory="/media/box2/Experiments/Jeff/RNAseq/paired_end/jeff2/output/J.Frisen_14_03_P1292_B7_YFVNM")
-  process.run_matrix()
+  folders_to_run = ['/media/box2/Experiments/Jeff/RNAseq/paired_end/jeff2/output/P8164_Bulk_RNAseq_Clones', '/media/box2/Experiments/Jeff/RNAseq/paired_end/jeff2/output/Joanna_Test_RNAseq_Single_Bulk', '/media/box2/Experiments/Jeff/RNAseq/paired_end/jeff2/output/J.Frisen_14_03_P1292_B7_YFVNM', '/media/box2/Experiments/Jeff/RNAseq/paired_end/jeff2/output/P1316_Female_A2_Data', '/media/box2/Experiments/Jeff/RNAseq/paired_end/jeff2/output/test_data', '/media/box2/Experiments/Jeff/RNAseq/single_end/output/D15_P1373_YFV2003_Run2', '/media/box2/Experiments/Jeff/RNAseq/single_end/output/D90_P1373_YFV2003', '/media/box2/Experiments/Jeff/RNAseq/single_end/output/D15_P1373_YFV2003']  
+  for folder in folders_to_run:
+    print(f"[GLOBAL] Running currently on: {folder}")
+    process = MatrixCreator(directory=folder)
+    process.run_matrix()
