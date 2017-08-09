@@ -5,13 +5,12 @@
 __version__ = "0.2.5 GIMLET"
 __doc__ =""" 
 This script has been adapted to be used with the following versions:
- python:    3.6.1
  snakemake: 3.13.3
- cutadapt:  1.14
- multiqc:   1.0
- fastqc:    0.11.5
- salmon:    0.8.2
- conda:     4.3.21
+ cutadapt: 1.14
+ multiqc: 1.0
+ fastqc: 0.11.5
+ salmon: 0.8.2
+ conda: 4.3.21
 """
 
 # We will need to import several methods from fp, 
@@ -161,16 +160,22 @@ class MatrixCreator(fp.FileExpander):
     run_unfilt = Process(target=self.unfiltered_matrix)
     run_filt.start()
     run_unfilt.start()
+    run_filt.join()
+    run_unfilt.join()
 
   def run_prf(self):
     self.annotation()
+    print(f"{self.ERDEFS.OKGREEN}")
     run = Process(target=self.filtered_matrix)
     run.start()
+    run.join()
 
   def run_pruf(self):
     self.annotation()
+    print(f"{self.ERDEFS.BLUE}")
     run = Process(target=self.unfiltered_matrix)
     run.start()
+    run.join()
 
   def unfiltered_matrix(self, tmp="tmp", count="count"):
     tmp_name_unfilt   = tmp
@@ -236,8 +241,13 @@ class MatrixCreator(fp.FileExpander):
    # to_run is a the queue we wish to run, so as to 
    # parse it into the processing loop. 
     to_run = ((tmp,"tmp"), (count, "count"))
-    out_q = Queue()
-    procs = list()
+
+   # There seems to be an issue with regard to the necessity of 
+   # flushing the queue before moving on, due to its size. 
+   # Docs suggests various solutions. 
+    out_q  = Queue() # In order to save the returned dataframes from indep. processes.
+    procs  = list()  # Necessary to join the processes later
+    output = dict()  # Will be used to store the data put in Queue 
 
     for i in to_run:
      # Note that we are here using the to run
@@ -245,15 +255,51 @@ class MatrixCreator(fp.FileExpander):
      # we are starting processes for each of these. The tricky part is to
      # solve the args issue. 
       p = Process(target=self.filtered_matrix_producer, kwargs={"dataframe": i[0], "out_q":out_q, "name": i[1]})
+      procs.append(p)
       p.start()
-      print("(FILT) in the process loop")
-    print("(FILT)") 
-    p.join() 
-    output = dict()
-    for i in range(len(to_run)):
-      data = out_q.get()
-      output[data[0]] = data[-1]  
-   
+      print(f"{self.ERDEFS.OKGREEN}(FILT) In the process loop{self.ERDEFS.END}")
+
+    print(f"{self.ERDEFS.OKGREEN}(FILT) Outside of the process loop{self.ERDEFS.END}")
+
+ #   print("(FILT) Retrieving from Queue")
+ #   data = out_q.get() # Blocking
+ #   print("(FILT) Finished retrieving from Queue")
+ #   output[data[0]] = data[-1]
+ #   print("(FILT) Retrieving from Queue")
+ #   data = out_q.get() # Blocking
+ #   print("(FILT) Finished retrieving from Queue")
+ #   output[data[0]] = data[-1]
+ #   print(output)
+
+#    while True:
+#      if not out_q.empty():
+#        print("(FILT) Retrieving from Queue")
+#        data = out_q.get() # Blocking
+#        print("(FILT) Finished retrieving from Queue")
+#        output[data[0]] = data[-1]
+
+#        if out_q.empty(): break
+#        else:
+#          print("continuing")
+#          continue
+#      elif out_q.empty():
+#        print("empty")
+#        sleep(1)
+    
+    for i in range(len(procs)):
+      print("(FILT) Retrieving from Queue")
+      data = out_q.get() # Blocking
+      output[data[0]] = data[-1]
+    print("Finished retrieving")
+    print(output)
+
+    for proc in procs:
+      proc.join() # Blocking
+      print("sdasd")
+    print("(FILT) Joined the processes" )
+    print("(FILT) Incorporating the results")
+    print("(FILT) Saving to csv...")
+
     output["tmp"].to_csv(f"{self.output_folder}/{tmp_name_unfilt}_filtered_{self.file_name}.csv")
     output["count"].to_csv(f"{self.output_folder}/{count_name_unfilt}_filtered_{self.file_name}.csv")
 
@@ -261,10 +307,10 @@ class MatrixCreator(fp.FileExpander):
     dataframe = kwargs["dataframe"]
     out_q     = kwargs["out_q"]
     name      = kwargs["name"]
-    ID        = id(dataframe) 
+    ID        = id(dataframe)
     # The dataframe of interest. 
     # It will contain all the compounded values for each gene. 
-    print(f"(FILT) Producing filtered dataframes\nID: {ID}")
+    print(f"(FILT) Producing filtered dataframes; id: {ID}")
 
     # This is the dataframe file that will containt all of the
     # genes and the relevant counts. It is important to note that
@@ -289,15 +335,14 @@ class MatrixCreator(fp.FileExpander):
       filtered_matrix.loc[gene_name] = filtered_matrix.loc[gene_name].add(dataframe.iloc[i])
 
     output = [name, filtered_matrix]
+    print(f"{self.ERDEFS.OKGREEN}(FILT) Putting shit in the output dict")
     out_q.put(output)
-    print(f"(FILT) Finished producing filtered matrix: {ID}\n")
-    #return filtered_matrix
+    print("(FILT) finished putting the shit")
 
 
-
-  # This method is used to read the matrices we have produced. 
-  # Currently adapted to read from csv's and not tsv's. 
   def read_matrix(self, i):
+  # This method is used to read the matrices we have produced.
+  # Currently adapted to read from csv's and not tsv's.
     df = DataFrame.from_csv(i)
     return df
 
@@ -310,8 +355,6 @@ class MatrixCreator(fp.FileExpander):
     
     for pos,n in enumerate(i):
       print(f"({parent}) {pos}")
-      if pos == 2:
-        return StopIteration
 
       with open(n, "r") as file:
 
@@ -377,11 +420,15 @@ class MatrixCreator(fp.FileExpander):
 
         yield tmp, count, pstmp, pscount
 
+      if pos == 0:
+        return StopIteration
 
-  # Returns files with quant prefix. 
-  # Boolean function. 
+
 
   def isquant(self, i):
+  # Returns files with quant prefix.
+  # Boolean function.
+
   # The regex param. It is going to be used to
   # identify the correct data files of interest. 
     param = re.search(r"\w/quant\.sf$", i)
