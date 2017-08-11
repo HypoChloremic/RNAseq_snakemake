@@ -21,7 +21,9 @@ import re, os
 import matplotlib.pyplot as plt
 from pandas import DataFrame
 from pandas import concat
-from collections import Counter, OrderedDict
+from collections import Counter 
+from collections import OrderedDict
+from collections import deque
 from time import time, sleep
 # log10 import has been depreciated. An implementation in 
 # cython needs to be tested before reintroduction. 
@@ -43,21 +45,24 @@ class MatrixCreator(fp.FileExpander):
                delimiter="/", 
                output_folder="matrix_output"):
 
-    # The output folder name
-    self.output_folder = output_folder
+    if directory:
+      # The output folder name
+      self.output_folder = output_folder
 
-    # Importing error defs
-    self.ERDEFS = ERROR_DEFS.Definitions()
+      # Importing error defs
+      self.ERDEFS = ERROR_DEFS.Definitions()
    
-    # Finding out what the name of the sample is, by splitting the directory
-    self.file_name = directory.split(delimiter)[-1] 
+      # Finding out what the name of the sample is, by splitting the directory
+      self.file_name = directory.split(delimiter)[-1] 
 
-    # Using the opener to get config paths.
-    _, SYMLINK_DIR, self.ANNOTATION_PATH = self.opener(config, term="ANNOTATION_PATH")
-    files        = expander(directory)
-    #self.quants  = [ i for i in files if self.isquant(i) ]
-    self.quants = files
-   
+      # Using the opener to get config paths.
+      _, SYMLINK_DIR, self.ANNOTATION_PATH = self.opener(config, term="ANNOTATION_PATH")
+      files        = expander(directory)
+      #self.quants  = [ i for i in files if self.isquant(i) ]
+      self.quants = files
+    else:
+      pass
+ 
     # Will remove folder, so as to create a new annotation file that is written. 
     if overwrite is True:
       call(["rm", "-r", f"{folder}"])
@@ -300,14 +305,14 @@ class MatrixCreator(fp.FileExpander):
     t = time()
 
     for i in range(len(dataframe.index.values)):
-    # Create the necessary gene-names. 
+      # Create the necessary gene-names. 
       if "ERCC" in dataframe.index[i]:
         continue
       
-    # Extract the gene-name from the dataframe by index. 
-    # Note that we are iterating thriugh the range of the 
-    # number of indices, or rows rather, implying we can access them by
-    # index number.  
+      # Extract the gene-name from the dataframe by index. 
+      # Note that we are iterating thriugh the range of the 
+      # number of indices, or rows rather, implying we can access them by
+      # index number.  
       gene_name = dataframe.index[i].split("|")[-1]
       filtered_matrix.loc[gene_name] = filtered_matrix.loc[gene_name].add(dataframe.iloc[i])
 
@@ -318,15 +323,98 @@ class MatrixCreator(fp.FileExpander):
 
 
   def read_matrix(self, i):
-  # This method is used to read the matrices we have produced.
-  # Currently adapted to read from csv's and not tsv's.
+    # This method is used to read the matrices we have produced.
+    # Currently adapted to read from csv's and not tsv's.
     df = DataFrame.from_csv(i)
     return df
 
-  # This generator is central to all of the producers.
-  # It is used to process the salmon quant.sf files, 
-  # performs dictionary lookups and appends the gene names to the ENST's.  
+  def csv_to_tsv(self, folder="temp_data"):
+    # Converts csv's to tsv's due to some 
+    # down-stream coding issue. 
+    print("[GLOBAL] Running the csv-to-tsv converter")
+    fileq = deque(os.listdir(folder))
+    
+    # This will be checking whether the q is empty or not
+    # and will continue if it ain't empty. 
+    while fileq:
+      
+      check_file = fileq.pop()
+      path = f"{folder}/{check_file}"
+      print(f"(GLOBAL) Converting {path}")
+      with open(path, "r") as file:
+        data = file.read()
+
+      data = data.replace(",", "	")
+      with open(path.replace("csv","tsv"), "w") as file:
+        file.write(data)
+        
+              
+  def unifier(self, folder, delimiter="/"):
+   # Will remove all of the names from gene-names
+   # that were not paired with the 
+ 
+    print("[GLOBAL] Loading queue...")
+    fileq = deque([ i for i in os.listdir(folder) if "_filtered_" in i and ".csv" in i ])
+    
+
+    while fileq:
+        
+      filtered   = fileq.pop()
+      unfiltered = filtered.replace("filtered", "unfiltered")
+
+
+      filtered_path   = f"{folder}{delimiter}{filtered}"
+      unfiltered_path = f"{folder}{delimiter}{unfiltered}"
+
+      print(f"[GLOBAL] Opening {filtered_path} and {unfiltered_path}")
+
+      filtered_data   = self.arr(filtered_path)
+      unfiltered_data = self.arr(unfiltered_path) 
+      unfiltered_data = list(set([ i[0].split("|")[-1] for i in unfiltered_data[1:]] ))
+
+      print("[GLOBAL] Created data lists")
+
+      names = filtered_data[0]
+      print("[GLOBAL] Loaded gene-names")
+
+      filtered_data = filtered_data[1:]
+      unified_data  = []
+      print("[GLOBAL] Identifying outliers")
+      for pos,i in enumerate(filtered_data):
+
+        if i[0] in unfiltered_data:
+          unified_data.append(i)
+
+      new_file = f"{ filtered_path.replace('.csv','') }_unified.tsv"
+
+      print(f"[Globa] writing to {new_file}_unified.tsv")
+      with open(f"{new_file}", "w") as file:
+        
+        names = "\t".join(names)
+        names = f"{names}\n"
+        file.write(names)
+
+        for i in unified_data:
+          string_to_write = "\t".join(i)
+          string_to_write = f"{string_to_write}"
+          file.write(string_to_write) 
+
+  def arr(self, i, delimiter=",", func=None):
+    # Reads input and spits out a 2D array.
+
+    with open(i, "r") as file:
+      data = file.readlines()
+    data = [i.split(delimiter) for i in data]
+
+    return data
+    
+    
+
+ 
   def text_processing(self, i, parent=None):
+    # This generator is central to all of the producers.
+    # It is used to process the salmon quant.sf files,
+    # performs dictionary lookups and appends the gene names to the ENST's.
     tmp_creator   = lambda data, sample_tmp: DataFrame(data, columns=[sample_tmp], index=data["Name"])
     count_creator = lambda data, sample_count: DataFrame(data, columns=[sample_count], index=data["Name"])
     
@@ -403,15 +491,22 @@ class MatrixCreator(fp.FileExpander):
 def expander(top, bol_=lambda i: "quant.sf" in i, delimiter="/"):
   walk_gen = os.walk(top)
   print(top)
+
   paths = [ i for i in walk_gen for n in i if bol_(n) ]
   #print(paths)
+
   abspaths = [ f"{i[0]}{delimiter}quant.sf" for i in paths]
   print(f"[GLOBAL] Going to process {len(abspaths)} quant files")
   return abspaths
 
 if __name__ == "__main__":
-  folders_to_run = 
-  for folder in folders_to_run:
-    print(f"[GLOBAL] Running currently on: {folder}")
-    process = MatrixCreator(directory=folder)
-    process.run_matrix()
+  process = MatrixCreator()
+  process.unifier("temp_data")
+
+
+
+
+
+
+
+ 
